@@ -7,38 +7,28 @@ import '../utils/device_info_service.dart';
 /// Servicio de autenticación que integra:
 /// - Login con información del dispositivo
 /// - Almacenamiento seguro de credenciales
-/// - Autenticación biométrica
-/// - Autorización de dispositivo
+/// - Autenticación biométrica o PIN de operaciones
+/// - Autorización de dispositivo con código de 8 dígitos
 class AuthService {
   /// Realiza el login del usuario.
   /// Envía credenciales + información del dispositivo al backend.
-  /// Retorna true si el login fue exitoso.
   static Future<AuthResult> login(String email, String password) async {
     try {
-      // Intentar login con la API
       final response = await ApiService.login(
         email: email,
         password: password,
       );
 
-      // Guardar tokens de forma segura
       await SecureStorageService.saveJwt(response.token);
       await SecureStorageService.saveRefreshToken(response.refreshToken);
       await SecureStorageService.saveUserId(response.user.id);
       await SecureStorageService.setDeviceAuthorized(response.deviceAuthorized);
 
-      // Verificar si necesita enrolamiento biométrico
-      bool biometricEnrolled = false;
-      if (response.deviceAuthorized) {
-        // El dispositivo ya está autorizado, verificar si el usuario quiere biometría
-        biometricEnrolled = await SecureStorageService.isBiometricEnabled();
-      }
-
       return AuthResult(
         success: true,
         deviceAuthorized: response.deviceAuthorized,
-        biometricEnrolled: biometricEnrolled,
-        needsBiometricEnrollment: response.deviceAuthorized && !biometricEnrolled,
+        biometricEnabled: response.biometricEnabled,
+        requiresPinSetup: response.requiresPinSetup,
       );
     } catch (e) {
       debugPrint('Error en login: $e');
@@ -49,11 +39,123 @@ class AuthService {
     }
   }
 
-  /// Solicita enrolamiento biométrico después de un login exitoso.
-  /// Este método debe llamarse justo después de un login exitoso.
+  /// Autentica al usuario usando biometría o PIN de operaciones.
+  /// Retorna true si la autenticación fue exitosa.
+  static Future<AuthResult> authenticateWithBiometricOrPin() async {
+    try {
+      final isBiometricEnabled = await SecureStorageService.isBiometricEnabled();
+      final hasBiometricHardware = await BiometricService.isBiometricAvailable();
+
+      if (isBiometricEnabled && hasBiometricHardware) {
+        final result = await BiometricService.authenticateWithBiometrics(
+          reason: 'Autentícate para acceder a Activopay',
+          useBiometricsOnly: false,
+        );
+
+        if (result.isSuccess) {
+          return AuthResult(success: true, biometricUsed: true);
+        }
+        
+        return AuthResult(
+          success: false,
+          error: result.message,
+          biometricFailed: true,
+        );
+      } else {
+        return AuthResult(
+          success: false,
+          error: 'PIN required',
+          requiresPin: true,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error en autenticación: $e');
+      return AuthResult(
+        success: false,
+        error: 'Error al autenticar: $e',
+      );
+    }
+  }
+
+  /// Autentica usando PIN de operaciones de 4 dígitos.
+  static Future<bool> authenticateWithPin(String pin) async {
+    try {
+      final response = await ApiService.verifyPin(pin);
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error verificando PIN: $e');
+      return false;
+    }
+  }
+
+  /// Configura el PIN de operaciones del usuario.
+  static Future<bool> setupPin(String pin) async {
+    try {
+      final response = await ApiService.setupPin(pin);
+      if (response.statusCode == 200) {
+        await SecureStorageService.setPinEnabled(true);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error configurando PIN: $e');
+      return false;
+    }
+  }
+
+  /// Solicita el código de verificación para validar el dispositivo.
+  /// El código de 8 dígitos se envía al correo del usuario.
+  static Future<bool> requestDeviceValidationCode() async {
+    try {
+      final deviceInfo = await DeviceInfoService.getDeviceInfoPayload();
+      if (deviceInfo == null) {
+        throw Exception('No se pudo obtener información del dispositivo');
+      }
+
+      final response = await ApiService.post(
+        '/device/validate/request',
+        data: deviceInfo.toJson(),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error solicitando código de validación: $e');
+      return false;
+    }
+  }
+
+  /// Valida el código de 8 dígitos enviado por correo.
+  static Future<bool> validateDeviceCode(String code) async {
+    try {
+      final response = await ApiService.post(
+        '/device/validate/confirm',
+        data: {'code': code},
+      );
+
+      if (response.statusCode == 200) {
+        await SecureStorageService.setDeviceAuthorized(true);
+        
+        final deviceInfo = await DeviceInfoService.getDeviceInfoPayload();
+        if (deviceInfo != null) {
+          await ApiService.post(
+            '/device/authorize',
+            data: deviceInfo.toJson(),
+          );
+        }
+        
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('Error validando código: $e');
+      return false;
+    }
+  }
+
+  /// Solicita enrolamiento biométrico.
   static Future<BiometricEnrollmentResult> enrollBiometric() async {
     try {
-      // Verificar si el hardware soporta biometría
       final isAvailable = await BiometricService.isBiometricAvailable();
       
       if (!isAvailable) {
@@ -63,13 +165,10 @@ class AuthService {
         );
       }
 
-      // Solicitar autenticación biométrica para enrolar
       final result = await BiometricService.enrollBiometric();
 
       if (result.isSuccess) {
-        // Guardar estado de biometría activada
         await SecureStorageService.setBiometricEnabled(true);
-        
         return BiometricEnrollmentResult(
           success: true,
           message: 'Biometría activada correctamente',
@@ -89,14 +188,12 @@ class AuthService {
     }
   }
 
-  /// Solicita autenticación biométrica para transacciones sensibles.
-  /// Retorna true si la autenticación fue exitosa.
+  /// Solicita autenticación para transacciones sensibles.
   static Future<bool> authenticateForTransaction() async {
     try {
       final isBiometricEnabled = await SecureStorageService.isBiometricEnabled();
       
       if (!isBiometricEnabled) {
-        // Si biometría no está activada, permitir sin autenticación
         return true;
       }
 
@@ -108,35 +205,7 @@ class AuthService {
     }
   }
 
-  /// Autoriza el dispositivo actual en el backend.
-  /// Este método se llama desde la pantalla de validación de dispositivo.
-  static Future<bool> authorizeDevice() async {
-    try {
-      final deviceInfo = await DeviceInfoService.getDeviceInfoPayload();
-      
-      if (deviceInfo == null) {
-        throw Exception('No se pudo obtener información del dispositivo');
-      }
-
-      final response = await ApiService.post(
-        '/device/authorize',
-        data: deviceInfo.toJson(),
-      );
-
-      if (response.statusCode == 200) {
-        await SecureStorageService.setDeviceAuthorized(true);
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      debugPrint('Error autorizando dispositivo: $e');
-      return false;
-    }
-  }
-
   /// Cierra la sesión del usuario.
-  /// Limpia tokens y datos de sesión almacenados de forma segura.
   static Future<void> logout() async {
     try {
       await SecureStorageService.clearAllSession();
@@ -171,15 +240,21 @@ class AuthService {
 class AuthResult {
   final bool success;
   final bool deviceAuthorized;
-  final bool biometricEnrolled;
-  final bool needsBiometricEnrollment;
+  final bool biometricEnabled;
+  final bool biometricUsed;
+  final bool biometricFailed;
+  final bool requiresPinSetup;
+  final bool requiresPin;
   final String? error;
 
   AuthResult({
     required this.success,
     this.deviceAuthorized = false,
-    this.biometricEnrolled = false,
-    this.needsBiometricEnrollment = false,
+    this.biometricEnabled = false,
+    this.biometricUsed = false,
+    this.biometricFailed = false,
+    this.requiresPinSetup = false,
+    this.requiresPin = false,
     this.error,
   });
 

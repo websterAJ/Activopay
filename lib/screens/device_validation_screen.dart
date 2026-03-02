@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../services/biometric_service.dart';
 
 /// Pantalla mostrada cuando el dispositivo no está autorizado.
-/// El usuario debe validar su identidad para autorizar el nuevo dispositivo.
+/// El usuario debe ingresar el código de 8 dígitos enviado por correo.
 class DeviceValidationScreen extends StatefulWidget {
   const DeviceValidationScreen({super.key});
 
@@ -12,48 +11,90 @@ class DeviceValidationScreen extends StatefulWidget {
 }
 
 class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _codeController = TextEditingController();
   bool _isLoading = false;
+  bool _isSendingCode = false;
   String? _errorMessage;
-  bool _biometricAvailable = false;
+  int? _resendCooldown;
 
   @override
   void initState() {
     super.initState();
-    _checkBiometricAvailability();
+    _sendValidationCode();
   }
 
-  Future<void> _checkBiometricAvailability() async {
-    final available = await BiometricService.isBiometricAvailable();
-    if (mounted) {
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendValidationCode() async {
+    setState(() {
+      _isSendingCode = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final success = await AuthService.requestDeviceValidationCode();
+
+      if (success) {
+        setState(() {
+          _resendCooldown = 60;
+        });
+        _startCooldown();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Código enviado a tu correo electrónico'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _errorMessage = 'No se pudo enviar el código. Intenta de nuevo.';
+        });
+      }
+    } catch (e) {
       setState(() {
-        _biometricAvailable = available;
+        _errorMessage = 'Error al enviar código: $e';
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingCode = false;
+        });
+      }
     }
   }
 
-  Future<void> _validateDevice() async {
+  void _startCooldown() {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      setState(() {
+        if (_resendCooldown != null && _resendCooldown! > 0) {
+          _resendCooldown = _resendCooldown! - 1;
+          _startCooldown();
+        }
+      });
+    });
+  }
+
+  Future<void> _validateCode() async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      // Paso 1: Solicitar biometría para verificar identidad
-      final biometricResult = await BiometricService.authenticateWithBiometrics(
-        reason: 'Verifica tu identidad para autorizar este dispositivo',
-        useBiometricsOnly: false,
+      final success = await AuthService.validateDeviceCode(
+        _codeController.text.trim(),
       );
-
-      if (!biometricResult.isSuccess) {
-        setState(() {
-          _errorMessage = biometricResult.message;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Paso 2: Enviar solicitud de autorización al backend
-      final success = await AuthService.authorizeDevice();
 
       if (success) {
         if (mounted) {
@@ -67,12 +108,12 @@ class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
         }
       } else {
         setState(() {
-          _errorMessage = 'No se pudo autorizar el dispositivo. Intenta de nuevo.';
+          _errorMessage = 'Código inválido. Verifica e intenta de nuevo.';
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error al validar el dispositivo: $e';
+        _errorMessage = 'Error al validar el código: $e';
       });
     } finally {
       if (mounted) {
@@ -99,113 +140,167 @@ class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.phonelink_lock,
-              size: 80,
-              color: Colors.orange,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Dispositivo No Autorizado',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Este dispositivo no está autorizado para acceder a tu cuenta. '
-              'Por favor, verifica tu identidad para continuar.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            if (_errorMessage != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, color: Colors.red[700]),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red[700]),
-                      ),
-                    ),
-                  ],
-                ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 40),
+              const Icon(
+                Icons.phonelink_lock,
+                size: 80,
+                color: Colors.orange,
               ),
               const SizedBox(height: 24),
-            ],
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _validateDevice,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(_biometricAvailable ? Icons.fingerprint : Icons.lock),
-                label: Text(_isLoading 
-                    ? 'Validando...' 
-                    : _biometricAvailable 
-                        ? 'Validar con Biometría' 
-                        : 'Validar Identidad'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+              Text(
+                'Dispositivo No Autorizado',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Este dispositivo no está autorizado para acceder a tu cuenta. '
+                'Se ha enviado un código de verificación a tu correo electrónico.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              if (_errorMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red[700]),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+              TextFormField(
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 8,
+                style: const TextStyle(
+                  fontSize: 24,
+                  letterSpacing: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Código de verificación',
+                  hintText: '--------',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Ingresa el código de 8 dígitos';
+                  }
+                  if (value.trim().length != 8) {
+                    return 'El código debe tener 8 dígitos';
+                  }
+                  if (!RegExp(r'^\d{8}$').hasMatch(value.trim())) {
+                    return 'El código debe contener solo números';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _validateCode,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check),
+                  label: Text(_isLoading ? 'Validando...' : 'Validar Código'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            if (!_biometricAvailable)
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('¿No recibiste el código? '),
+                  TextButton(
+                    onPressed: (_resendCooldown == null || _resendCooldown == 0) 
+                        && !_isSendingCode
+                        ? _sendValidationCode
+                        : null,
+                    child: _isSendingCode
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            _resendCooldown != null && _resendCooldown! > 0
+                                ? 'Reenviar en ${_resendCooldown}s'
+                                : 'Reenviar código',
+                          ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
               Text(
-                'Nota: No se detectó biometría en este dispositivo. '
-                'Se utilizará un método alternativo de verificación.',
+                '¿Necesitas ayuda?',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.grey[500],
                 ),
                 textAlign: TextAlign.center,
               ),
-            const SizedBox(height: 24),
-            TextButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('¿Necesitas ayuda?'),
-                    content: const Text(
-                      'Si este es tu dispositivo y no puedes validarlo, '
-                      'contacta al soporte técnico o intenta iniciar sesión '
-                      'desde un dispositivo previamente autorizado.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Entendido'),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('¿Necesitas ayuda?'),
+                      content: const Text(
+                        'Si este es tu dispositivo y no puedes validarlo, '
+                        'contacta al soporte técnico o intenta iniciar sesión '
+                        'desde un dispositivo previamente autorizado.',
                       ),
-                    ],
-                  ),
-                );
-              },
-              child: const Text('¿Necesitas ayuda?'),
-            ),
-          ],
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Entendido'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const Text('Contactar soporte'),
+              ),
+            ],
+          ),
         ),
       ),
     );

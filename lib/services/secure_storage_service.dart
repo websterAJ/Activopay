@@ -10,6 +10,7 @@ class SecureStorageService {
   static const String _keyRefreshToken = 'refresh_token';
   static const String _keyDeviceAuthorized = 'device_authorized';
   static const String _keyUserId = 'user_id';
+  static const String _keyPinEnabled = 'pin_enabled';
 
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -146,6 +147,27 @@ class SecureStorageService {
       await _storage.delete(key: _keyUserId);
     } catch (e) {
       debugPrint('Error eliminando user ID: $e');
+    }
+  }
+
+  /// Guarda el estado del PIN de operaciones.
+  static Future<void> setPinEnabled(bool enabled) async {
+    try {
+      await _storage.write(key: _keyPinEnabled, value: enabled.toString());
+    } catch (e) {
+      debugPrint('Error guardando estado del PIN: $e');
+      rethrow;
+    }
+  }
+
+  /// Recupera el estado del PIN de operaciones.
+  static Future<bool> isPinEnabled() async {
+    try {
+      final value = await _storage.read(key: _keyPinEnabled);
+      return value == 'true';
+    } catch (e) {
+      debugPrint('Error leyendo estado del PIN: $e');
+      return false;
     }
   }
 

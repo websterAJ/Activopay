@@ -119,6 +119,32 @@ class ApiService {
     final response = await get('/user/me');
     return response.data;
   }
+
+  /// Verifica el PIN de operaciones del usuario.
+  static Future<Response> verifyPin(String pin) async {
+    return await post(
+      '/auth/pin/verify',
+      data: {'pin': pin},
+    );
+  }
+
+  /// Configura el PIN de operaciones del usuario.
+  static Future<Response> setupPin(String pin) async {
+    return await post(
+      '/auth/pin/setup',
+      data: {'pin': pin},
+    );
+  }
+
+  /// Habilita la biometría para el usuario.
+  static Future<Response> enableBiometric() async {
+    return await post('/auth/biometric/enable');
+  }
+
+  /// Deshabilita la biometría para el usuario.
+  static Future<Response> disableBiometric() async {
+    return await post('/auth/biometric/disable');
+  }
 }
 
 /// Respuesta del login.
@@ -127,12 +153,16 @@ class LoginResponse {
   final String refreshToken;
   final UserData user;
   final bool deviceAuthorized;
+  final bool biometricEnabled;
+  final bool requiresPinSetup;
 
   LoginResponse({
     required this.token,
     required this.refreshToken,
     required this.user,
     required this.deviceAuthorized,
+    this.biometricEnabled = false,
+    this.requiresPinSetup = false,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
@@ -141,6 +171,8 @@ class LoginResponse {
       refreshToken: json['refresh_token'] ?? '',
       user: UserData.fromJson(json['user'] ?? {}),
       deviceAuthorized: json['device_authorized'] ?? false,
+      biometricEnabled: json['biometric_enabled'] ?? false,
+      requiresPinSetup: json['requires_pin_setup'] ?? false,
     );
   }
 }

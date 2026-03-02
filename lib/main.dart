@@ -3,6 +3,7 @@ import 'screens/home_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/device_validation_screen.dart';
+import 'screens/biometric_pin_auth_screen.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
 import 'services/network_interceptor.dart';
@@ -34,6 +35,11 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomeScreen(),
         '/detail': (context) => const DetailScreen(),
         '/device-validation': (context) => const DeviceValidationScreen(),
+        '/biometric-auth': (context) => BiometricPinAuthScreen(
+          onSuccess: () {
+            Navigator.pushReplacementNamed(context, '/home');
+          },
+        ),
       },
     );
   }

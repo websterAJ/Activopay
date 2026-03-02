@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'security_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -38,6 +39,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (result.success) {
         if (result.requiresDeviceValidation) {
           Navigator.pushReplacementNamed(context, '/device-validation');
+        } else if (result.requiresPinSetup) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SecuritySetupScreen(
+                onComplete: () {
+                  Navigator.pushReplacementNamed(context, '/home');
+                },
+              ),
+            ),
+          );
         } else {
           Navigator.pushReplacementNamed(context, '/home');
         }
