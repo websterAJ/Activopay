@@ -1,8 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
-/// Pantalla mostrada cuando el dispositivo no está autorizado.
-/// El usuario debe ingresar el código de 8 dígitos enviado por correo.
 class DeviceValidationScreen extends StatefulWidget {
   const DeviceValidationScreen({super.key});
 
@@ -11,23 +10,60 @@ class DeviceValidationScreen extends StatefulWidget {
 }
 
 class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _codeController = TextEditingController();
+  final List<TextEditingController> _controllers =
+      List.generate(4, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+
   bool _isLoading = false;
   bool _isSendingCode = false;
   String? _errorMessage;
-  int? _resendCooldown;
+  int _secondsRemaining = 120; // 02:00
+  Timer? _timer;
+
+  static const Color primaryColor = Color(0xFF473BF0);
+  static const Color navyCustom = Color(0xFF02004D);
+  static const Color backgroundLight = Color(0xFFF6F6F8);
+  static const Color slate600 = Color(0xFF475569);
+  static const Color slate500 = Color(0xFF64748B);
+  static const Color slate200 = Color(0xFFE2E8F0);
 
   @override
   void initState() {
     super.initState();
+    _startTimer();
     _sendValidationCode();
   }
 
   @override
   void dispose() {
-    _codeController.dispose();
+    _timer?.cancel();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
     super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _secondsRemaining = 120;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          _timer?.cancel();
+        }
+      });
+    });
+  }
+
+  String get _timerText {
+    final minutes = (_secondsRemaining ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_secondsRemaining % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
   Future<void> _sendValidationCode() async {
@@ -40,11 +76,7 @@ class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
       final success = await AuthService.requestDeviceValidationCode();
 
       if (success) {
-        setState(() {
-          _resendCooldown = 60;
-        });
-        _startCooldown();
-        
+        _startTimer();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -71,20 +103,14 @@ class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
     }
   }
 
-  void _startCooldown() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      setState(() {
-        if (_resendCooldown != null && _resendCooldown! > 0) {
-          _resendCooldown = _resendCooldown! - 1;
-          _startCooldown();
-        }
-      });
-    });
-  }
-
   Future<void> _validateCode() async {
-    if (!_formKey.currentState!.validate()) return;
+    final code = _controllers.map((c) => c.text).join();
+    if (code.length != 4) {
+      setState(() {
+        _errorMessage = 'Ingresa el código de 4 dígitos';
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -92,18 +118,10 @@ class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
     });
 
     try {
-      final success = await AuthService.validateDeviceCode(
-        _codeController.text.trim(),
-      );
+      final success = await AuthService.validateDeviceCode(code);
 
       if (success) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Dispositivo autorizado correctamente'),
-              backgroundColor: Colors.green,
-            ),
-          );
           Navigator.pushReplacementNamed(context, '/home');
         }
       } else {
@@ -127,178 +145,197 @@ class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Validar Dispositivo'),
-        automaticallyImplyLeading: false,
-        actions: [
-          TextButton(
-            onPressed: () {
-              AuthService.logout();
-              Navigator.pushReplacementNamed(context, '/login');
-            },
-            child: const Text('Cerrar Sesión'),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
+      backgroundColor: backgroundLight,
+      body: SafeArea(
+        child: Container(
+          color: Colors.white,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      onPressed: () {
+                        AuthService.logout();
+                        Navigator.pushReplacementNamed(context, '/login');
+                      },
+                    ),
+                    const Icon(
+                      Icons.change_history,
+                      color: primaryColor,
+                      size: 32,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Title and Description
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Validar Dispositivo',
+                      style: TextStyle(
+                        color: navyCustom,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Hemos enviado un código de seguridad de 4 dígitos a tu correo electrónico registrado',
+                      style: TextStyle(
+                        color: slate600,
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 40),
-              const Icon(
-                Icons.phonelink_lock,
-                size: 80,
-                color: Colors.orange,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Dispositivo No Autorizado',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Este dispositivo no está autorizado para acceder a tu cuenta. '
-                'Se ha enviado un código de verificación a tu correo electrónico.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              if (_errorMessage != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red[200]!),
+
+              // OTP Input
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(
+                    4,
+                    (index) => SizedBox(
+                      width: 70,
+                      height: 70,
+                      child: TextField(
+                        controller: _controllers[index],
+                        focusNode: _focusNodes[index],
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        maxLength: 1,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: "",
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(color: slate200, width: 2),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(color: primaryColor, width: 2),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value.isNotEmpty && index < 3) {
+                            _focusNodes[index + 1].requestFocus();
+                          }
+                          if (value.isEmpty && index > 0) {
+                            _focusNodes[index - 1].requestFocus();
+                          }
+                          if (_controllers.every((c) => c.text.isNotEmpty)) {
+                            _validateCode();
+                          }
+                        },
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.red[700]),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(color: Colors.red[700]),
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // Timer and Resend
+              Center(
+                child: Column(
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        text: 'El código expira en ',
+                        style: TextStyle(color: slate500, fontSize: 14),
+                        children: [
+                          TextSpan(
+                            text: _timerText,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _isSendingCode || _secondsRemaining > 0
+                          ? null
+                          : _sendValidationCode,
+                      child: Text(
+                        'Reenviar código',
+                        style: TextStyle(
+                          color: (_isSendingCode || _secondsRemaining > 0)
+                              ? slate500
+                              : primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-              TextFormField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 8,
-                style: const TextStyle(
-                  fontSize: 24,
-                  letterSpacing: 8,
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Código de verificación',
-                  hintText: '--------',
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Ingresa el código de 8 dígitos';
-                  }
-                  if (value.trim().length != 8) {
-                    return 'El código debe tener 8 dígitos';
-                  }
-                  if (!RegExp(r'^\d{8}$').hasMatch(value.trim())) {
-                    return 'El código debe contener solo números';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _validateCode,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check),
-                  label: Text(_isLoading ? 'Validando...' : 'Validar Código'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('¿No recibiste el código? '),
-                  TextButton(
-                    onPressed: (_resendCooldown == null || _resendCooldown == 0) 
-                        && !_isSendingCode
-                        ? _sendValidationCode
-                        : null,
-                    child: _isSendingCode
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            _resendCooldown != null && _resendCooldown! > 0
-                                ? 'Reenviar en ${_resendCooldown}s'
-                                : 'Reenviar código',
+
+              const Spacer(),
+
+              // Error message
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              // Continue Button
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _validateCode,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      elevation: 4,
+                      shadowColor: primaryColor.withOpacity(0.4),
+                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            'Validar y Continuar',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text(
-                '¿Necesitas ayuda?',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[500],
                 ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('¿Necesitas ayuda?'),
-                      content: const Text(
-                        'Si este es tu dispositivo y no puedes validarlo, '
-                        'contacta al soporte técnico o intenta iniciar sesión '
-                        'desde un dispositivo previamente autorizado.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Entendido'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                child: const Text('Contactar soporte'),
-              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
