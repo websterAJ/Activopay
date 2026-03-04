@@ -5,6 +5,15 @@ import 'screens/home_screen.dart';
 import 'screens/detail_screen.dart';
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
+import 'screens/device_validation_screen.dart';
+import 'screens/biometric_pin_auth_screen.dart';
+import 'screens/forgot_password_screen.dart';
+import 'screens/recovery_instructions_sent_screen.dart';
+import 'screens/change_operations_pin_screen.dart';
+import 'screens/password_change_success_screen.dart';
+import 'services/auth_service.dart';
+import 'services/api_service.dart';
+import 'services/network_interceptor.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/account_movements_screen.dart';
 import 'screens/payment_directory_screen.dart';
@@ -46,6 +55,18 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/detail': (context) => const DetailScreen(),
+        '/device-validation': (context) => const DeviceValidationScreen(),
+        '/biometric-auth': (context) => BiometricPinAuthScreen(
+          onSuccess: () {
+            Navigator.pushReplacementNamed(context, '/home');
+          },
+        ),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/recovery-instructions-sent': (context) => const RecoveryInstructionsSentScreen(),
+        '/change-operations-pin': (context) => const ChangeOperationsPinScreen(),
+        '/password-change-success': (context) => const PasswordChangeSuccessScreen(),
         '/home': (context) => const DashboardScreen(),
         '/account-movements': (context) => const AccountMovementsScreen(),
         '/payment-directory': (context) => const PaymentDirectoryScreen(),
