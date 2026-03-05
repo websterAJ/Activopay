@@ -3,7 +3,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'screens/home_screen.dart';
 import 'screens/detail_screen.dart';
-import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/device_validation_screen.dart';
 import 'screens/biometric_pin_auth_screen.dart';
@@ -12,7 +11,6 @@ import 'screens/recovery_instructions_sent_screen.dart';
 import 'screens/change_operations_pin_screen.dart';
 import 'screens/password_change_success_screen.dart';
 import 'services/auth_service.dart';
-import 'services/api_service.dart';
 import 'services/network_interceptor.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/account_movements_screen.dart';
@@ -50,9 +48,6 @@ class MyApp extends StatelessWidget {
         Locale('es'),
       ],
       home: const AuthGate(),
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
@@ -67,7 +62,7 @@ class MyApp extends StatelessWidget {
         '/recovery-instructions-sent': (context) => const RecoveryInstructionsSentScreen(),
         '/change-operations-pin': (context) => const ChangeOperationsPinScreen(),
         '/password-change-success': (context) => const PasswordChangeSuccessScreen(),
-        '/home': (context) => const DashboardScreen(),
+        '/dashboard': (context) => const DashboardScreen(),
         '/account-movements': (context) => const AccountMovementsScreen(),
         '/payment-directory': (context) => const PaymentDirectoryScreen(),
         '/create-contact': (context) => const CreateContactScreen(),
@@ -75,6 +70,70 @@ class MyApp extends StatelessWidget {
         '/validate-payment': (context) => const ValidatePaymentScreen(),
         '/transaction-found': (context) => const TransactionFoundScreen(),
       },
+    );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    _setupUnauthorizedCallback();
+    _checkAuth();
+  }
+
+  void _setupUnauthorizedCallback() {
+    NetworkInterceptor.onUnauthorized = () {
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/device-validation',
+        (route) => route.settings.name == '/login',
+      );
+    };
+  }
+
+  Future<void> _checkAuth() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+
+    if (loggedIn) {
+      final deviceAuthorized = await AuthService.isDeviceAuthorized();
+      if (!mounted) return;
+
+      if (!deviceAuthorized) {
+        Navigator.pushReplacementNamed(context, '/device-validation');
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.account_balance_wallet,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(),
+          ],
+        ),
+      ),
     );
   }
 }

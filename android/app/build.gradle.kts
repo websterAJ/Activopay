@@ -39,6 +39,11 @@ android {
     }
 }
 
+dependencies {
+    debugImplementation(files("libs/NfcSdkSuiche7b-mini-v1.0.8.14-202509262229-v8-debug.aar"))
+    releaseImplementation(files("libs/NfcSdkSuiche7b-mini-v1.0.8.14-202509262229-v8-release.aar"))
+}
+
 flutter {
     source = "../.."
 }
