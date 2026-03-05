@@ -4,6 +4,10 @@ import 'screens/detail_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/device_validation_screen.dart';
 import 'screens/biometric_pin_auth_screen.dart';
+import 'screens/forgot_password_screen.dart';
+import 'screens/recovery_instructions_sent_screen.dart';
+import 'screens/change_operations_pin_screen.dart';
+import 'screens/password_change_success_screen.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
 import 'services/network_interceptor.dart';
@@ -40,6 +44,10 @@ class MyApp extends StatelessWidget {
             Navigator.pushReplacementNamed(context, '/home');
           },
         ),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/recovery-instructions-sent': (context) => const RecoveryInstructionsSentScreen(),
+        '/change-operations-pin': (context) => const ChangeOperationsPinScreen(),
+        '/password-change-success': (context) => const PasswordChangeSuccessScreen(),
       },
     );
   }
