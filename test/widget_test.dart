@@ -3,11 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:activopay/main.dart';
 
 void main() {
-  testWidgets('App starts with AuthGate showing a loader', (WidgetTester tester) async {
+  testWidgets('App starts at Login Screen', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 
-    // Verify that AuthGate shows a CircularProgressIndicator initially.
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    // Verify that we are on the login screen.
+    expect(find.text('ActivoPay'), findsWidgets);
+    expect(find.text('Iniciar'), findsOneWidget);
   });
 }

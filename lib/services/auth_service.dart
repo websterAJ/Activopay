@@ -8,7 +8,7 @@ import '../utils/device_info_service.dart';
 /// - Login con información del dispositivo
 /// - Almacenamiento seguro de credenciales
 /// - Autenticación biométrica o PIN de operaciones
-/// - Autorización de dispositivo con código de 8 dígitos
+/// - Autorización de dispositivo con código de 4 dígitos
 class AuthService {
   /// Realiza el login del usuario.
   /// Envía credenciales + información del dispositivo al backend.
@@ -104,7 +104,7 @@ class AuthService {
   }
 
   /// Solicita el código de verificación para validar el dispositivo.
-  /// El código de 8 dígitos se envía al correo del usuario.
+  /// El código de 4 dígitos se envía al correo del usuario.
   static Future<bool> requestDeviceValidationCode() async {
     try {
       final deviceInfo = await DeviceInfoService.getDeviceInfoPayload();
@@ -124,7 +124,7 @@ class AuthService {
     }
   }
 
-  /// Valida el código de 8 dígitos enviado por correo.
+  /// Valida el código de 4 dígitos enviado por correo.
   static Future<bool> validateDeviceCode(String code) async {
     try {
       final response = await ApiService.post(
