@@ -19,6 +19,7 @@ import 'screens/create_contact_screen.dart';
 import 'screens/contact_operations_screen.dart';
 import 'screens/validate_payment_screen.dart';
 import 'screens/transaction_found_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,6 +70,7 @@ class MyApp extends StatelessWidget {
         '/contact-operations': (context) => const ContactOperationsScreen(),
         '/validate-payment': (context) => const ValidatePaymentScreen(),
         '/transaction-found': (context) => const TransactionFoundScreen(),
+        '/settings': (context) => const SettingsScreen(),
       },
     );
   }
