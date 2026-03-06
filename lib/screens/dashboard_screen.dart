@@ -64,7 +64,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const Spacer(),
                   _CircularIconButton(icon: Icons.notifications),
                   const SizedBox(width: 8),
-                  _CircularIconButton(icon: Icons.settings),
+                  _CircularIconButton(
+                    icon: Icons.settings,
+                    onTap: () => Navigator.pushNamed(context, '/settings'),
+                  ),
                 ],
               ),
             ),
@@ -207,7 +210,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          if (index == 3) {
+            Navigator.pushNamed(context, '/settings');
+          } else {
+            setState(() => _currentIndex = index);
+          }
+        },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
@@ -223,28 +232,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _CircularIconButton extends StatelessWidget {
   final IconData icon;
+  final VoidCallback? onTap;
 
-  const _CircularIconButton({required this.icon});
+  const _CircularIconButton({required this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.slate800 : Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.slate100, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.slate800 : Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.slate100, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(icon, size: 22, color: AppColors.navy),
       ),
-      child: Icon(icon, size: 22, color: AppColors.navy),
     );
   }
 }
