@@ -88,18 +88,20 @@ class _PaymentDirectoryScreenState extends State<PaymentDirectoryScreen> {
                     child: const Icon(Icons.person_add, color: Colors.white, size: 24),
                   ),
                   const SizedBox(width: 16),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Agregar Nuevo Contacto',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
-                      ),
-                      Text(
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Agregar Nuevo Contacto',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+                        ),
+                        Text(
                         'Crea un nuevo beneficiario para pagos',
                         style: TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                     ],
+                  ),
                   ),
                   const Spacer(),
                   const Icon(Icons.chevron_right, color: Colors.white54),

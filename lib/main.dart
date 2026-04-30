@@ -11,6 +11,7 @@ import 'screens/recovery_instructions_sent_screen.dart';
 import 'screens/change_operations_pin_screen.dart';
 import 'screens/password_change_success_screen.dart';
 import 'services/auth_service.dart';
+import 'services/api_service.dart';
 import 'services/network_interceptor.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/account_movements_screen.dart';
@@ -23,6 +24,7 @@ import 'screens/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  ApiService.init();
   runApp(const MyApp());
 }
 

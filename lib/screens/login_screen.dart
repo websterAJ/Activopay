@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
+import '../services/auth_service.dart';
+import 'security_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +17,72 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Por favor ingresa tu correo y contraseña';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await AuthService.login(
+      _emailController.text,
+      _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (result.success) {
+      if (!result.deviceAuthorized) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/device-validation');
+        }
+      } else if (result.requiresPinSetup) {
+        if (mounted) {
+          _showSecuritySetup();
+        }
+      } else {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/biometric-auth');
+        }
+      }
+    } else {
+      setState(() {
+        _errorMessage = result.error ?? 'Error al iniciar sesión';
+      });
+    }
+  }
+
+  void _showSecuritySetup() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SecuritySetupScreen(
+          onComplete: () {
+            Navigator.pushReplacementNamed(context, '/home');
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +110,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+              const Center(
+                child: Text(
+                  'ActivoPay',
+                  style: TextStyle(
+                    color: AppColors.purpleBlue,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
               const SizedBox(height: 48),
               AppInput(
-                label: 'Correo',
-                placeholder: 'Correo',
+                label: 'Usuario/Email',
+                placeholder: 'Usuario/Email',
                 controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
+                keyboardType: TextInputType.text,
                 showPrefixIcon: false,
               ),
               const SizedBox(height: 16),
@@ -77,25 +156,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 48),
-              const Center(
-                child: Text(
-                  'ActivoPay',
-                  style: TextStyle(
-                    color: AppColors.purpleBlue,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
+              const SizedBox(height: 24),
+              if (_errorMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(color: Colors.red[700]),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
+              ],
               AppButton(
                 text: 'Iniciar',
-                onPressed: () {
-                  // TODO: Real login logic
-                  Navigator.pushReplacementNamed(context, '/home');
-                },
+                onPressed: _handleLogin,
                 isLoading: _isLoading,
                 backgroundColor: AppColors.purpleBlue,
               ),

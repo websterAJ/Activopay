@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../widgets/bento_card.dart';
-import '../widgets/transaction_tile.dart';
 import '../widgets/app_bottom_nav_bar.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -13,7 +11,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-  bool _isBalanceVisible = true;
 
   @override
   Widget build(BuildContext context) {
@@ -62,11 +59,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const Spacer(),
-                  _CircularIconButton(icon: Icons.notifications),
                   const SizedBox(width: 8),
                   _CircularIconButton(
-                    icon: Icons.settings,
-                    onTap: () => Navigator.pushNamed(context, '/settings'),
+                    icon: Icons.logout,
+                    onTap: () => Navigator.pushNamed(context, '/login'),
                   ),
                 ],
               ),
@@ -74,135 +70,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           SliverPadding(
             padding: const EdgeInsets.all(20),
-            sliver: SliverList(
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.2,
+              ),
               delegate: SliverChildListDelegate([
-                // Balance Card
-                BentoCard(
-                  backgroundColor: AppColors.navy,
-                  padding: const EdgeInsets.all(24),
-                  child: Stack(
-                    children: [
-                      // Background decorative elements (simplified)
-                      Positioned(
-                        right: -40,
-                        top: -40,
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: AppColors.purpleBlue.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Saldo Principal'.toUpperCase(),
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  _isBalanceVisible ? Icons.visibility : Icons.visibility_off,
-                                  color: Colors.white.withOpacity(0.7),
-                                  size: 20,
-                                ),
-                                onPressed: () => setState(() => _isBalanceVisible = !_isBalanceVisible),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _isBalanceVisible ? 'Bs. 12.450,00' : 'Bs. ••••••',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                _QuickAction(
+                  icon: Icons.payments,
+                  label: 'Vuelto',
+                  onTap: () => Navigator.pushNamed(context, '/account-movements'),
                 ),
-                const SizedBox(height: 24),
-                // Quick Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _QuickAction(icon: Icons.payments, label: 'Vuelto'),
-                    _QuickAction(icon: Icons.request_quote, label: 'Cobro'),
-                    _QuickAction(icon: Icons.fact_check, label: 'Validar pago'),
-                    _QuickAction(icon: Icons.more_horiz, label: 'Más'),
-                  ],
+                _QuickAction(
+                  icon: Icons.request_quote,
+                  label: 'Cobro',
+                  onTap: () => Navigator.pushNamed(context, '/contact-operations'),
                 ),
-                const SizedBox(height: 32),
-                // Recent Activity Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Actividad Reciente',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.navy,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                        'Ver todo',
-                        style: TextStyle(
-                          color: AppColors.purpleBlue,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
+                _QuickAction(
+                  icon: Icons.fact_check,
+                  label: 'Validar pago',
+                  onTap: () => Navigator.pushNamed(context, '/validate-payment'),
                 ),
-                const SizedBox(height: 12),
-                // Activity List
-                const TransactionTile(
-                  title: 'Farmatodo S.A.',
-                  subtitle: 'Hace 2 horas • Pago Móvil',
-                  amount: -840.00,
-                  date: 'Hace 2 horas',
-                  icon: Icons.shopping_cart,
+                _QuickAction(
+                  icon: Icons.local_atm,
+                  label: 'Pagos de Servicios',
+                  onTap: () => Navigator.pushNamed(context, '/payment-directory'),
                 ),
-                TransactionTile(
-                  title: 'Transferencia recibida',
-                  subtitle: 'Ayer • De Maria Perez',
-                  amount: 908.75,
-                  date: 'Ayer',
-                  icon: Icons.person,
-                  iconColor: AppColors.purpleBlue,
+                _QuickAction(
+                  icon: Icons.bar_chart,
+                  label: 'Reportes',
+                  onTap: () => Navigator.pushNamed(context, '/account-movements'),
                 ),
-                const TransactionTile(
-                  title: 'Restaurant La Piazzetta',
-                  subtitle: '24 Oct • Tarjeta',
-                  amount: -1250.00,
-                  date: '24 Oct',
-                  icon: Icons.restaurant,
-                ),
-                const TransactionTile(
-                  title: 'Estación de Servicio',
-                  subtitle: '23 Oct • Biopago',
-                  amount: -450.00,
-                  date: '23 Oct',
-                  icon: Icons.local_gas_station,
-                ),
-                const SizedBox(height: 80), // Padding for bottom bar
               ]),
             ),
           ),
@@ -230,11 +130,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 86,
+            height: 86,
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.slate800 : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(color: AppColors.slate100),
+            ),
+            child: Icon(icon, color: AppColors.purpleBlue, size: 42),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 86,
+            child: Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppColors.navy,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CircularIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
+  final double size;
 
-  const _CircularIconButton({required this.icon, this.onTap});
+  const _CircularIconButton({
+    required this.icon,
+    this.onTap,
+    this.size = 40,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -242,8 +202,8 @@ class _CircularIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           color: isDark ? AppColors.slate800 : Colors.white,
           shape: BoxShape.circle,
@@ -256,55 +216,8 @@ class _CircularIconButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, size: 22, color: AppColors.navy),
+        child: Icon(icon, size: size * 0.55, color: AppColors.navy),
       ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _QuickAction({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      children: [
-        Container(
-          width: 76,
-          height: 76,
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.slate800 : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: Border.all(color: AppColors.slate100),
-          ),
-          child: Icon(icon, color: AppColors.purpleBlue, size: 32),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 76,
-          child: Text(
-            label.toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: AppColors.navy,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
