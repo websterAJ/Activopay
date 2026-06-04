@@ -6,7 +6,7 @@ import 'network_interceptor.dart';
 /// Servicio de API utilizando Dio con interceptor.
 /// Configuración centralizada de red para la aplicación.
 class ApiService {
-  static const String _baseUrl = 'https://activopay.bancoactivo.com/api/';
+  static const String _baseUrl = 'http://10.3.0.188:3000/api/';
   
   static late final Dio _dio;
 
@@ -98,6 +98,7 @@ class ApiService {
         'email': email,
         'password': password,
         'device': deviceInfo?.toJson(),
+        'fingerprint_id': 'asdasda'
       },
     );
 
