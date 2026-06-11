@@ -2,28 +2,31 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/settings_service.dart';
 
-class ChangeOperationsPinScreen extends StatefulWidget {
-  const ChangeOperationsPinScreen({super.key});
+class ChangePasswordScreen extends StatefulWidget {
+  const ChangePasswordScreen({super.key});
 
   @override
-  State<ChangeOperationsPinScreen> createState() => _ChangeOperationsPinScreenState();
+  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
-class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _obscurePin = true;
   bool _isLoading = false;
 
-  final _currentPinController = TextEditingController();
-  final _newPinController = TextEditingController();
-  final _confirmPinController = TextEditingController();
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _pinController = TextEditingController();
 
   @override
   void dispose() {
-    _currentPinController.dispose();
-    _newPinController.dispose();
-    _confirmPinController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -43,29 +46,30 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
     );
   }
 
-  Future<void> _onChangePin() async {
-    final currentPin = _currentPinController.text;
-    final newPin = _newPinController.text;
-    final confirmPin = _confirmPinController.text;
+  Future<void> _onChangePassword() async {
+    final currentPassword = _currentPasswordController.text;
+    final newPassword = _newPasswordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+    final pin = _pinController.text;
 
-    if (currentPin.isEmpty || newPin.isEmpty || confirmPin.isEmpty) {
+    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty || pin.isEmpty) {
       _showError('Por favor completa todos los campos.');
       return;
     }
 
-    if (currentPin.length != 4 || newPin.length != 4 || confirmPin.length != 4) {
-      _showError('El PIN debe ser exactamente de 4 dígitos numéricos.');
+    if (newPassword != confirmPassword) {
+      _showError('Las nuevas contraseñas no coinciden.');
       return;
     }
 
-    if (newPin != confirmPin) {
-      _showError('Los nuevos PINs no coinciden.');
+    if (pin.length != 4) {
+      _showError('El PIN debe tener exactamente 4 dígitos.');
       return;
     }
 
     setState(() => _isLoading = true);
 
-    final result = await SettingsService.changeOperationPin(currentPin, newPin);
+    final result = await SettingsService.changeAccessPassword(currentPassword, newPassword, pin);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -75,7 +79,7 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Éxito'),
-          content: Text(result.message ?? 'PIN cambiado exitosamente.'),
+          content: Text(result.message ?? 'Contraseña cambiada exitosamente.'),
           actions: [
             TextButton(
               onPressed: () {
@@ -88,7 +92,7 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
         ),
       );
     } else {
-      _showError(result.message ?? 'No se pudo cambiar el PIN.');
+      _showError(result.message ?? 'No se pudo cambiar la contraseña.');
     }
   }
 
@@ -98,6 +102,8 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
     required VoidCallback onToggle,
     required String hint,
     required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
+    int? maxLength,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
@@ -121,8 +127,8 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscure,
-            keyboardType: TextInputType.number,
-            maxLength: 4,
+            keyboardType: keyboardType,
+            maxLength: maxLength,
             style: TextStyle(
               color: isDark ? Colors.white : AppColors.navy,
               fontWeight: FontWeight.bold,
@@ -190,7 +196,7 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Cambiar PIN',
+          'Cambiar Contraseña',
           style: TextStyle(
             color: isDark ? Colors.white : AppColors.navy,
             fontWeight: FontWeight.bold,
@@ -204,7 +210,7 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Ingresar Nuevo PIN de Operaciones',
+              'Ingresar Nueva Contraseña de Acceso',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -214,7 +220,7 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Ingresa tu PIN actual y define tu nuevo PIN de operaciones especiales de 4 dígitos numéricos.',
+              'Ingresa tu contraseña actual y define tu nueva contraseña. Requerirás tu PIN de operaciones para autorizar este cambio.',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -223,34 +229,49 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
             ),
             const SizedBox(height: 32),
             _buildField(
-              label: 'PIN ACTUAL',
-              hint: '••••',
-              controller: _currentPinController,
+              label: 'CONTRASEÑA ACTUAL',
+              hint: '••••••••',
+              controller: _currentPasswordController,
               obscure: _obscureCurrent,
               onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
             ),
             _buildField(
-              label: 'NUEVO PIN',
-              hint: '••••',
-              controller: _newPinController,
+              label: 'NUEVA CONTRASEÑA',
+              hint: '••••••••',
+              controller: _newPasswordController,
               obscure: _obscureNew,
               onToggle: () => setState(() => _obscureNew = !_obscureNew),
             ),
             _buildField(
-              label: 'CONFIRMAR NUEVO PIN',
-              hint: '••••',
-              controller: _confirmPinController,
+              label: 'CONFIRMAR NUEVA CONTRASEÑA',
+              hint: '••••••••',
+              controller: _confirmPasswordController,
               obscure: _obscureConfirm,
               onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
             ),
             const SizedBox(height: 16),
-            _buildRequirement('Debe tener exactamente 4 dígitos numéricos'),
+            const Divider(),
+            const SizedBox(height: 16),
+            _buildField(
+              label: 'PIN DE OPERACIONES (AUTORIZACIÓN)',
+              hint: '••••',
+              controller: _pinController,
+              obscure: _obscurePin,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              onToggle: () => setState(() => _obscurePin = !_obscurePin),
+            ),
+            const SizedBox(height: 16),
+            _buildRequirement('Al menos 8 caracteres'),
+            _buildRequirement('Contiene un número'),
+            _buildRequirement('Contiene una letra mayúscula y minúscula'),
+            _buildRequirement('Contiene un símbolo (ej. \$#&¡!)'),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _onChangePin,
+                onPressed: _isLoading ? null : _onChangePassword,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.purpleBlue,
                   foregroundColor: Colors.white,
@@ -273,16 +294,6 @@ class _ChangeOperationsPinScreenState extends State<ChangeOperationsPinScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            Center(
-              child: Container(
-                width: 128,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
           ],
         ),
       ),

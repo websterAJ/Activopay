@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
+import 'secure_storage_service.dart';
+import 'biometric_service.dart';
 import 'network_interceptor.dart';
 
 /// Checks auth state and redirects to login, device validation, or home.
@@ -33,16 +35,39 @@ class _AuthGateState extends State<AuthGate> {
     if (!mounted) return;
 
     if (loggedIn) {
-      final deviceAuthorized = await AuthService.isDeviceAuthorized();
+      final deviceAuthorized = await SecureStorageService.isDeviceAuthorized();
       if (!mounted) return;
 
       if (!deviceAuthorized) {
         Navigator.pushReplacementNamed(context, '/device-validation');
+        return;
+      }
+
+      final biometricEnabled = await SecureStorageService.isBiometricEnabled();
+      final biometricAvailable = await BiometricService.isBiometricAvailable();
+      if (!mounted) return;
+
+      if (biometricEnabled && biometricAvailable) {
+        Navigator.pushReplacementNamed(context, '/biometric-login');
       } else {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } else {
-      Navigator.pushReplacementNamed(context, '/login');
+      final savedEmail = await SecureStorageService.getSavedEmail();
+      final savedPassword = await SecureStorageService.getSavedPassword();
+      final biometricEnabled = await SecureStorageService.isBiometricEnabled();
+      final biometricAvailable = await BiometricService.isBiometricAvailable();
+
+      if (!mounted) return;
+
+      if (savedEmail != null &&
+          savedPassword != null &&
+          biometricEnabled &&
+          biometricAvailable) {
+        Navigator.pushReplacementNamed(context, '/biometric-login');
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
     }
   }
 

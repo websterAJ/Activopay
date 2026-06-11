@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
 import '../services/auth_service.dart';
+import '../services/secure_storage_service.dart';
 import 'security_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,7 +18,31 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _biometricAvailable = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+    _checkBiometric();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final email = await SecureStorageService.getSavedEmail();
+    final password = await SecureStorageService.getSavedPassword();
+    if (email != null && password != null) {
+      _emailController.text = email;
+      _passwordController.text = password;
+      setState(() => _rememberMe = true);
+    }
+  }
+
+  Future<void> _checkBiometric() async {
+    final enabled = await SecureStorageService.isBiometricEnabled();
+    if (mounted) setState(() => _biometricAvailable = enabled);
+  }
 
   @override
   void dispose() {
@@ -50,24 +75,101 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = false;
     });
 
+    if (!mounted) return;
+
+    if (result.isFirstLogin) {
+      setState(() {
+        _errorMessage = 'Debe cambiar su contraseña en el primer acceso.';
+      });
+      return;
+    }
+
+    if (result.isDeviceNotAuthorized) {
+      if (result.email != null && result.password != null) {
+        await SecureStorageService.saveTempEmail(result.email!);
+        await SecureStorageService.saveTempPassword(result.password!);
+      }
+      await AuthService.requestDeviceValidationCode(
+        email: result.email,
+        password: result.password,
+      );
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/device-validation');
+      }
+      return;
+    }
+
     if (result.success) {
-      if (!result.deviceAuthorized) {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/device-validation');
-        }
-      } else if (result.requiresPinSetup) {
-        if (mounted) {
-          _showSecuritySetup();
-        }
+      if (_rememberMe) {
+        await SecureStorageService.saveCredentials(
+          _emailController.text,
+          _passwordController.text,
+        );
       } else {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/biometric-auth');
-        }
+        await SecureStorageService.clearCredentials();
+      }
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } else {
       setState(() {
         _errorMessage = result.error ?? 'Error al iniciar sesión';
       });
+    }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final biometric = await AuthService.authenticateWithBiometricOrPin();
+    if (!mounted) return;
+
+    if (!biometric.success) {
+      setState(() => _isLoading = false);
+      if (biometric.error != null) setState(() => _errorMessage = biometric.error);
+      return;
+    }
+
+    final email = await SecureStorageService.getSavedEmail();
+    final password = await SecureStorageService.getSavedPassword();
+
+    if (email == null || password == null) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'No hay credenciales guardadas. Inicia sesión manualmente.';
+      });
+      return;
+    }
+
+    final result = await AuthService.login(email, password);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.isFirstLogin) {
+      setState(() => _errorMessage = 'Debe cambiar su contraseña en el primer acceso.');
+      return;
+    }
+
+    if (result.isDeviceNotAuthorized) {
+      if (result.email != null && result.password != null) {
+        await SecureStorageService.saveTempEmail(result.email!);
+        await SecureStorageService.saveTempPassword(result.password!);
+      }
+      await AuthService.requestDeviceValidationCode(
+        email: result.email,
+        password: result.password,
+      );
+      if (mounted) Navigator.pushReplacementNamed(context, '/device-validation');
+      return;
+    }
+
+    if (result.success && mounted) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      setState(() => _errorMessage = result.error ?? 'Error al iniciar sesión');
     }
   }
 
@@ -97,14 +199,15 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
-              // Logo Placeholder
+              // Logo
               Center(
-                child: Container(
+                child: Image.asset(
+                  'lib/assets/activo3.png',
                   height: 160,
                   width: 160,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.account_balance_wallet,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Icon(
+                    Icons.wallet,
                     size: 100,
                     color: isDark ? Colors.white : AppColors.navy,
                   ),
@@ -134,8 +237,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 label: 'Contraseña',
                 placeholder: 'Contraseña',
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 showPrefixIcon: false,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: AppColors.slate400,
+                  ),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
               ),
               const SizedBox(height: 16),
               Row(
@@ -149,7 +259,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'Recuérdame',
                     style: TextStyle(
-                      color: isDark ? AppColors.slate400 : AppColors.navy.withOpacity(0.7),
+                      color: isDark
+                          ? AppColors.slate400
+                          : AppColors.navy.withOpacity(0.7),
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -178,6 +290,34 @@ class _LoginScreenState extends State<LoginScreen> {
                 isLoading: _isLoading,
                 backgroundColor: AppColors.purpleBlue,
               ),
+              if (_biometricAvailable) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _handleBiometricLogin,
+                    icon: const Icon(Icons.fingerprint, size: 22),
+                    label: const Text(
+                      'Iniciar con huella',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : AppColors.navy,
+                      side: BorderSide(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white38
+                            : AppColors.slate300,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               TextButton(
                 onPressed: () {},

@@ -5,6 +5,7 @@ void main() {
   testWidgets('App starts at Login Screen', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
     // Verify that we are on the login screen.
     expect(find.text('ActivoPay'), findsWidgets);

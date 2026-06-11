@@ -1,18 +1,21 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
+import '../services/secure_storage_service.dart';
 
 /// Servicio para obtener información única del dispositivo.
 /// Proporciona un ID persistente y metadatos del dispositivo para enviar al backend.
 class DeviceInfoService {
   static final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
-  
+
   static String? _cachedDeviceId;
   static DeviceMetadata? _cachedMetadata;
 
   /// Obtiene un ID único y persistente para el dispositivo.
   /// - iOS: Utiliza identifierForVendor
   /// - Android: Utiliza androidId (requiere Google Play Services) o genera un ID único
-  /// 
+  ///
   /// Retorna null si no es posible obtener el ID.
   static Future<String?> getDeviceId() async {
     if (_cachedDeviceId != null) {
@@ -25,7 +28,9 @@ class DeviceInfoService {
         _cachedDeviceId = iosInfo.identifierForVendor;
       } else if (defaultTargetPlatform == TargetPlatform.android) {
         final androidInfo = await _deviceInfo.androidInfo;
-        _cachedDeviceId = androidInfo.id.isNotEmpty ? androidInfo.id : '${androidInfo.hardware}_${androidInfo.device}';
+        _cachedDeviceId = androidInfo.id.isNotEmpty
+            ? androidInfo.id
+            : '${androidInfo.hardware}_${androidInfo.device}';
       }
     } catch (e) {
       debugPrint('Error obteniendo device ID: $e');
@@ -85,6 +90,31 @@ class DeviceInfoService {
       osVersion: metadata?.osVersion ?? 'unknown',
       deviceName: metadata?.deviceName ?? 'unknown',
     );
+  }
+
+  /// Genera un fingerprint único y estable del dispositivo (SHA-256),
+  /// replicando el enfoque de la app RN (useDeviceId hook).
+  /// Almacena el fingerprint en SecureStorageService para persistencia.
+  static Future<String> ensureDeviceFingerprint() async {
+    final existing = await SecureStorageService.getDeviceFingerprint();
+    if (existing != null && existing.length >= 16) {
+      return existing;
+    }
+
+    final metadata = await getDeviceMetadata();
+    final components = [
+      metadata?.brand ?? 'unknown',
+      metadata?.model ?? 'unknown',
+      metadata?.osVersion ?? 'unknown',
+      metadata?.deviceName ?? 'unknown',
+      defaultTargetPlatform.toString(),
+    ];
+    final input = components.join('|');
+    final hash = sha256.convert(utf8.encode(input)).toString();
+    final fingerprint = hash.substring(0, 32);
+
+    await SecureStorageService.saveDeviceFingerprint(fingerprint);
+    return fingerprint;
   }
 
   /// Limpia la caché forzosamente (útil para logout o testing).

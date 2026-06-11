@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
+import '../services/secure_storage_service.dart';
 
 /// Pantalla de autenticación con Biometría o PIN.
 /// Se muestra después de un login exitoso para verificar identidad.
 class BiometricPinAuthScreen extends StatefulWidget {
   final VoidCallback onSuccess;
 
-  const BiometricPinAuthScreen({
-    super.key,
-    required this.onSuccess,
-  });
+  const BiometricPinAuthScreen({super.key, required this.onSuccess});
 
   @override
   State<BiometricPinAuthScreen> createState() => _BiometricPinAuthScreenState();
@@ -25,7 +23,7 @@ class _BiometricPinAuthScreenState extends State<BiometricPinAuthScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAndAuthenticate();
+    _checkAuthMethod();
   }
 
   @override
@@ -34,13 +32,11 @@ class _BiometricPinAuthScreenState extends State<BiometricPinAuthScreen> {
     super.dispose();
   }
 
-  Future<void> _checkAndAuthenticate() async {
+  Future<void> _checkAuthMethod() async {
     final hasBiometric = await BiometricService.isBiometricAvailable();
-    final biometricEnabled = await AuthService.isBiometricEnabled();
+    final biometricEnabled = await SecureStorageService.isBiometricEnabled();
 
-    if (hasBiometric && biometricEnabled) {
-      _authenticateWithBiometric();
-    } else {
+    if (!hasBiometric || !biometricEnabled) {
       setState(() {
         _usePin = true;
       });
@@ -110,11 +106,7 @@ class _BiometricPinAuthScreenState extends State<BiometricPinAuthScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.lock,
-                size: 80,
-                color: Colors.indigo,
-              ),
+              const Icon(Icons.lock, size: 80, color: Colors.indigo),
               const SizedBox(height: 24),
               Text(
                 _usePin ? 'Ingresa tu PIN' : 'Autenticación',
@@ -127,9 +119,9 @@ class _BiometricPinAuthScreenState extends State<BiometricPinAuthScreen> {
                 _usePin
                     ? 'Ingresa tu PIN de operaciones de 4 dígitos'
                     : 'Usa tu huella o rostro para acceder',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),

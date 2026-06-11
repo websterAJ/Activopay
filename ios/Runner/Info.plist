@@ -47,5 +47,10 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Utilizamos Face ID para autenticar tu identidad y proteger tu cuenta.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

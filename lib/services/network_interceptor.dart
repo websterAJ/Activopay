@@ -1,18 +1,18 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import '../utils/device_info_service.dart';
 import 'secure_storage_service.dart';
 
 /// Interceptor de red para Dio.
-/// Adjunta automáticamente el device_id en los headers de cada petición.
+/// Adjunta automáticamente device_id, api_key, id_comercio en los headers.
 /// Maneja errores 401/403 para dispositivos no autorizados.
 class NetworkInterceptor extends Interceptor {
-  static const String _deviceIdHeader = 'X-Device-ID';
-  static const String _deviceInfoHeader = 'X-Device-Info';
+  static const String _deviceIdHeader = 'x-device';
+  static const String _apiKeyHeader = 'x-api-key';
+  static const String _idComercioHeader = 'x-id-comercio';
   static const String _authorizationHeader = 'Authorization';
 
   static Dio? _dioInstance;
-  
+
   /// Callback que se ejecuta cuando el dispositivo no está autorizado.
   /// La aplicación debe usar esto para navegar a la pantalla de validación.
   static void Function()? onUnauthorized;
@@ -33,18 +33,31 @@ class NetworkInterceptor extends Interceptor {
   }
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     try {
-      // Adjuntar device_id
-      final deviceId = await DeviceInfoService.getDeviceId();
-      if (deviceId != null) {
+      // Adjuntar device_id (igual que RN: header "x-device")
+      final deviceId = await SecureStorageService.getDeviceFingerprint();
+      if (deviceId != null && deviceId.isNotEmpty) {
         options.headers[_deviceIdHeader] = deviceId;
       }
 
-      // Adjuntar información del dispositivo
-      final deviceMetadata = await DeviceInfoService.getDeviceMetadata();
-      if (deviceMetadata != null) {
-        options.headers[_deviceInfoHeader] = '${deviceMetadata.brand} ${deviceMetadata.model}';
+      // Adjuntar x-api-key (igual que RN)
+      final apiKey = await SecureStorageService.getApiKey();
+      if (apiKey != null && apiKey.isNotEmpty) {
+        options.headers[_apiKeyHeader] = apiKey;
+      } else {
+        options.headers[_apiKeyHeader] = '12345';
+      }
+
+      // Adjuntar x-id-comercio (igual que RN)
+      final idComercio = await SecureStorageService.getIdComercio();
+      if (idComercio != null && idComercio.isNotEmpty) {
+        options.headers[_idComercioHeader] = idComercio;
+      } else {
+        options.headers[_idComercioHeader] = '001';
       }
 
       // Adjuntar token JWT si existe
@@ -54,7 +67,9 @@ class NetworkInterceptor extends Interceptor {
       }
 
       debugPrint('REQUEST[${options.method}] => PATH: ${options.path}');
-      debugPrint('  Headers: device_id=${options.headers[_deviceIdHeader]}, hasToken=${token != null}');
+      debugPrint(
+        '  Headers: x-device=${options.headers[_deviceIdHeader]}, hasToken=${token != null}',
+      );
     } catch (e) {
       debugPrint('Error en onRequest interceptor: $e');
     }
@@ -64,13 +79,17 @@ class NetworkInterceptor extends Interceptor {
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    debugPrint('RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}');
+    debugPrint(
+      'RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
+    );
     handler.next(response);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    debugPrint('ERROR[${err.response?.statusCode}] => PATH: ${err.requestOptions.path}');
+    debugPrint(
+      'ERROR[${err.response?.statusCode}] => PATH: ${err.requestOptions.path}',
+    );
     debugPrint('  Message: ${err.message}');
 
     final statusCode = err.response?.statusCode;
@@ -81,12 +100,14 @@ class NetworkInterceptor extends Interceptor {
       final isDeviceUnauthorized = _isDeviceUnauthorizedError(errorBody);
 
       if (isDeviceUnauthorized) {
-        debugPrint('Dispositivo no autorizado detectado. Redirigiendo a validación...');
-        
+        debugPrint(
+          'Dispositivo no autorizado detectado. Redirigiendo a validación...',
+        );
+
         // Limpiar tokens locales
         await SecureStorageService.deleteJwt();
         await SecureStorageService.deleteRefreshToken();
-        
+
         // Notificar a la aplicación para navegar a la pantalla de validación
         if (onUnauthorized != null) {
           onUnauthorized!();
@@ -109,10 +130,10 @@ class NetworkInterceptor extends Interceptor {
       final message = errorBody['message']?.toString().toLowerCase();
 
       return code == 'device_not_authorized' ||
-             code == 'device_unauthorized' ||
-             message?.contains('device') == true && 
-             (message?.contains('not authorized') == true || 
-              message?.contains('unauthorized') == true);
+          code == 'device_unauthorized' ||
+          message?.contains('device') == true &&
+              (message?.contains('not authorized') == true ||
+                  message?.contains('unauthorized') == true);
     }
 
     return false;
@@ -159,9 +180,7 @@ class NetworkInterceptor extends Interceptor {
       final response = await dio.post(
         '/auth/refresh',
         data: {'refresh_token': refreshToken},
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-        ),
+        options: Options(headers: {'Content-Type': 'application/json'}),
       );
 
       if (response.statusCode == 200) {
@@ -189,11 +208,7 @@ class NetworkException implements Exception {
   final int? statusCode;
   final dynamic data;
 
-  NetworkException({
-    required this.message,
-    this.statusCode,
-    this.data,
-  });
+  NetworkException({required this.message, this.statusCode, this.data});
 
   bool get isUnauthorized => statusCode == 401;
   bool get isForbidden => statusCode == 403;

@@ -11,6 +11,7 @@ class AppInput extends StatelessWidget {
   final String? Function(String?)? validator;
   final int? maxLength;
   final bool showPrefixIcon;
+  final Widget? suffixIcon;
 
   const AppInput({
     super.key,
@@ -23,6 +24,7 @@ class AppInput extends StatelessWidget {
     this.validator,
     this.maxLength,
     this.showPrefixIcon = true,
+    this.suffixIcon,
   });
 
   @override
@@ -60,6 +62,7 @@ class AppInput extends StatelessWidget {
             prefixIcon: showPrefixIcon && prefixIcon != null
                 ? Icon(prefixIcon, color: AppColors.slate400, size: 20)
                 : null,
+            suffixIcon: suffixIcon,
             counterText: "",
             filled: true,
             fillColor: isDark ? AppColors.slate800 : Colors.white,

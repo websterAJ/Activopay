@@ -45,12 +45,11 @@ class AppBottomNavBar extends StatelessWidget {
             onTap: () => onTap(0),
           ),
           _NavBarItem(
-            icon: Icons.credit_card,
-            label: 'Tarjetas',
+            icon: Icons.qr_code_scanner,
+            label: 'Codigo QR',
             isActive: currentIndex == 1,
             onTap: () => onTap(1),
           ),
-          const SizedBox(width: 56), // Space for FAB
           _NavBarItem(
             icon: Icons.person_search,
             label: 'Contactos',
@@ -58,8 +57,8 @@ class AppBottomNavBar extends StatelessWidget {
             onTap: () => onTap(2),
           ),
           _NavBarItem(
-            icon: Icons.account_circle,
-            label: 'Perfil',
+            icon: Icons.settings,
+            label: 'Configuración',
             isActive: currentIndex == 3,
             onTap: () => onTap(3),
           ),
