@@ -1,30 +1,79 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'package:intl/intl.dart';
+
+enum SuccessScreenType { payment, validation, receipt }
 
 class OperationSuccessScreen extends StatelessWidget {
-  final String operationName;
+  final SuccessScreenType type;
+  final String title;
+  final String subtitle;
   final double amount;
-  final String? referenceNumber;
+  final String? reference;
+  final DateTime? date;
+  
+  // Custom fields
+  final String? recipientName;
+  final String? bankName;
+  final String? concept;
+  final String? operationType;
 
   const OperationSuccessScreen({
     super.key,
-    required this.operationName,
+    required this.type,
+    required this.title,
+    required this.subtitle,
     required this.amount,
-    this.referenceNumber,
+    this.reference,
+    this.date,
+    this.recipientName,
+    this.bankName,
+    this.concept,
+    this.operationType,
   });
+
+  String _formatAmount(double amt) {
+    final formatter = NumberFormat.currency(locale: 'es_VE', symbol: 'Bs.', decimalDigits: 2);
+    return formatter.format(amt);
+  }
+
+  String _formatDate(DateTime dt) {
+    final formatter = DateFormat('dd MMM yyyy - hh:mm a');
+    return formatter.format(dt);
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final bool isReceipt = type == SuccessScreenType.receipt;
+    final bool isValidation = type == SuccessScreenType.validation;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8F9FE),
+      appBar: isReceipt || isValidation ? AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.navy),
+          onPressed: () => Navigator.popUntil(context, ModalRoute.withName('/home')),
+        ),
+        title: Text(
+          isValidation ? 'Validación Exitosa' : 'Comprobante',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.navy,
+          ),
+        ),
+        centerTitle: true,
+      ) : null,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             children: [
-              const Spacer(flex: 2),
+              SizedBox(height: isReceipt || isValidation ? 24 : 64),
               Stack(
                 alignment: Alignment.center,
                 children: [
@@ -56,7 +105,7 @@ class OperationSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               Text(
-                '¡Operación Exitosa!',
+                title,
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -66,94 +115,188 @@ class OperationSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                operationName,
-                style: TextStyle(fontSize: 16, color: AppColors.slate500),
+                subtitle,
+                style: const TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
                 textAlign: TextAlign.center,
               ),
-              if (referenceNumber != null && referenceNumber!.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.slate50,
-                    borderRadius: BorderRadius.circular(16),
+              if (!isValidation) ...[
+                const SizedBox(height: 32),
+                Text(
+                  _formatAmount(amount),
+                  style: TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : AppColors.navy,
                   ),
-                  child: Text(
-                    'Ref: $referenceNumber',
+                ),
+              ],
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.navy : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    if (!isDark)
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    if (isValidation) ...[
+                      _buildDetailRow('Monto', _formatAmount(amount), isDark: isDark, isBoldValue: true),
+                      const SizedBox(height: 24),
+                    ],
+                    if (recipientName != null) ...[
+                      _buildDetailRow(isReceipt ? 'Comercio' : 'Destinatario', recipientName!, isDark: isDark, isBoldValue: true),
+                      const SizedBox(height: 24),
+                    ],
+                    if (bankName != null) ...[
+                      _buildDetailRow('Banco', bankName!, isDark: isDark, isBoldValue: true),
+                      const SizedBox(height: 24),
+                    ],
+                    _buildDetailRow(isValidation ? 'Referencia' : 'Número de referencia', '#${reference ?? "N/A"}', isDark: isDark, isBoldValue: true),
+                    const SizedBox(height: 24),
+                    _buildDetailRow(isValidation ? 'Fecha' : 'Fecha y hora', _formatDate(date ?? DateTime.now()), isDark: isDark, isBoldValue: true),
+                    if (concept != null || operationType != null) ...[
+                      const SizedBox(height: 24),
+                      _buildDetailRow(
+                        isValidation ? 'Tipo' : (isReceipt ? 'Método de Pago' : 'Concepto'), 
+                        concept ?? operationType ?? '', 
+                        isDark: isDark, 
+                        isBoldValue: true
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 48),
+              if (type == SuccessScreenType.payment || type == SuccessScreenType.receipt) ...[
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Share action logic
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.purpleBlue,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.share_outlined, color: Colors.white),
+                    label: const Text(
+                      'Compartir Comprobante',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  },
+                  child: const Text(
+                    'Ir al Inicio',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.slate700,
+                      color: AppColors.purpleBlue,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.popUntil(context, ModalRoute.withName('/home'));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.purpleBlue,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Ir al Inicio',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OperationSuccessScreen(
+                          type: SuccessScreenType.receipt,
+                          title: 'Pago Realizado con Éxito',
+                          subtitle: '',
+                          amount: amount,
+                          reference: reference,
+                          date: date,
+                          recipientName: recipientName,
+                          operationType: operationType ?? 'Transferencia Bancaria',
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Ver Comprobante',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.purpleBlue,
                     ),
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.purpleBlue.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.account_balance_wallet_rounded, color: AppColors.purpleBlue, size: 24),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Bs. ${amount.toStringAsFixed(2).replaceAll('.', ',')}',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.purpleBlue,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(flex: 2),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.purpleBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Ir al Inicio',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Opacity(
-                opacity: 0.5,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.verified_user, size: 14, color: AppColors.navy),
-                    const SizedBox(width: 8),
-                    Text(
-                      'CONEXIÓN SEGURA',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        color: AppColors.navy,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {required bool isDark, bool isBoldValue = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isBoldValue ? FontWeight.bold : FontWeight.normal,
+              color: isDark ? Colors.white : AppColors.navy,
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 }

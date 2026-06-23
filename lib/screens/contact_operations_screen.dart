@@ -75,9 +75,9 @@ class ContactOperationsScreen extends StatelessWidget {
             : 'Contacto');
 
     final String tpdocument = contact is ContactItem
-        ? contact.tpdocument
+        ? contact.tpdocument.toUpperCase()
         : (contact is Map<String, dynamic>
-            ? (contact['tpdocument']?.toString() ?? '')
+            ? (contact['tpdocument']?.toString() ?? '').toUpperCase()
             : '');
 
     final String document = contact is ContactItem
@@ -260,7 +260,7 @@ class ContactOperationsScreen extends StatelessWidget {
       params = {
         'id': contact.id,
         'name': contact.name,
-        'tpdocument': contact.tpdocument,
+        'tpdocument': contact.tpdocument.toUpperCase(),
         'document': contact.document,
         'phone': contact.phone,
         'account': contact.account,
@@ -268,7 +268,10 @@ class ContactOperationsScreen extends StatelessWidget {
         'type': contact.type,
       };
     } else if (contact is Map<String, dynamic>) {
-      params = contact;
+      params = Map<String, dynamic>.from(contact);
+      if (params.containsKey('tpdocument')) {
+        params['tpdocument'] = params['tpdocument']?.toString().toUpperCase();
+      }
     }
     Navigator.push(
       context,

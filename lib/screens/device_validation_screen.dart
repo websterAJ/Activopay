@@ -129,8 +129,24 @@ class _DeviceValidationScreenState extends State<DeviceValidationScreen> {
       final success = await AuthService.verifyDeviceCode(code);
 
       if (success) {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
+        final email = await SecureStorageService.getTempEmail();
+        final password = await SecureStorageService.getTempPassword();
+        if (email != null && password != null) {
+          final loginResult = await AuthService.login(email, password);
+          if (loginResult.success) {
+            await SecureStorageService.clearTempCredentials();
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          } else {
+            setState(() {
+              _errorMessage = loginResult.error ?? 'Error al iniciar sesión tras registrar dispositivo.';
+            });
+          }
+        } else {
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/login');
+          }
         }
       } else {
         setState(() {

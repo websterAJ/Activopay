@@ -6,11 +6,21 @@ class OperationResult {
   final bool success;
   final String? referenceNumber;
   final String? errorMessage;
+  final double? amount;
+  final DateTime? date;
+  final String? recipientName;
+  final String? bank;
+  final String? concept;
 
   OperationResult({
     required this.success,
     this.referenceNumber,
     this.errorMessage,
+    this.amount,
+    this.date,
+    this.recipientName,
+    this.bank,
+    this.concept,
   });
 }
 
@@ -38,7 +48,7 @@ class OperationService {
   static Future<Map<String, dynamic>> _getCommonData() async {
     final usuario = await SecureStorageService.getUserLogin() ?? '';
     final telefonoPagador = await SecureStorageService.getTelefonoPagador() ?? '';
-    final cedulaPagador = await SecureStorageService.getCedulaPagador() ?? '';
+    final cedulaPagador = (await SecureStorageService.getCedulaPagador() ?? '').toUpperCase();
     final nombrePagador = await SecureStorageService.getUserName() ?? '';
     final numeroCuentaPagador = await SecureStorageService.getNumeroCuenta() ?? '';
     final codBancoPagador = await SecureStorageService.getCodBanco() ?? '';
@@ -61,7 +71,7 @@ class OperationService {
       final limiteP2PStr = await SecureStorageService.getLimiteP2P();
       if (limiteP2PStr != null && limiteP2PStr.isNotEmpty) {
         final limite = double.tryParse(limiteP2PStr) ?? 0.0;
-        if (amount > limite) {
+        if (limite > 0.0 && amount > limite) {
           return OperationResult(
             success: false,
             errorMessage: 'El monto excede el límite permitido para P2P: $limiteP2PStr',
@@ -97,6 +107,7 @@ class OperationService {
 
       final data = {
         ...formData,
+        // 'descripcion': formData['descripcion'] ?? 'Pago Móvil Activopay',
         'monto': amount.toString(),
         'numero_cuenta_beneficiario': numeroCuentaBeneficiario,
         'usuario': commonData['usuario'],
@@ -141,7 +152,7 @@ class OperationService {
       final limiteProveedorStr = await SecureStorageService.getLimiteProveedor();
       if (limiteProveedorStr != null && limiteProveedorStr.isNotEmpty) {
         final limite = double.tryParse(limiteProveedorStr) ?? 0.0;
-        if (amount > limite) {
+        if (limite > 0.0 && amount > limite) {
           return OperationResult(
             success: false,
             errorMessage: 'El monto excede el límite permitido para Transferencia: $limiteProveedorStr',
@@ -154,6 +165,8 @@ class OperationService {
 
       final data = {
         ...formData,
+        // 'descripcion': formData['descripcion'] ?? 'Transferencia Activopay',
+        'amount': amount.toString(),
         'monto': amount.toString(),
         'usuario': commonData['usuario'],
         'cedula_pagador': commonData['cedula_pagador'],
@@ -193,7 +206,7 @@ class OperationService {
   /// Genera el payload (encriptado) para el código QR de recepción
   static Future<OperationResult> generateReceiveQr() async {
     try {
-      final idu = await SecureStorageService.getUserRif() ?? '';
+      final idu = (await SecureStorageService.getUserRif() ?? '').toUpperCase();
       final nombrePagador = await SecureStorageService.getUserName() ?? '';
       final telefonoPagador = await SecureStorageService.getTelefonoPagador() ?? '';
       final codBancoPagador = await SecureStorageService.getCodBanco() ?? '';
@@ -246,7 +259,11 @@ class OperationService {
       });
 
       if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        return response.data;
+        final respData = response.data as Map<String, dynamic>;
+        if (respData['success'] == true && respData.containsKey('data')) {
+          return respData['data'] as Map<String, dynamic>;
+        }
+        throw Exception(respData['message'] ?? 'Error desconocido al decodificar QR');
       }
       throw Exception('Respuesta inválida del servidor: ${response.statusCode}');
     } catch (e) {
@@ -377,11 +394,17 @@ class OperationService {
   }
 
   /// Solicita el OTP para Débito Inmediato (Operación 6)
-  static Future<OperationResult> requestDinmediatoOtp(Map<String, dynamic> formData, String telefonoPago) async {
+  static Future<OperationResult> requestDinmediatoOtp(Map<String, dynamic> formData, String telefonoPago, double amount) async {
     try {
       final commonData = await _getCommonData();
       final data = {
         ...formData,
+        'monto': amount.toString(),
+        'usuario': commonData['usuario'],
+        'cedula_beneficiario': commonData['cedula_pagador'],
+        'nombre_beneficiario': (commonData['nombre_pagador'] != null && commonData['nombre_pagador'].toString().trim().isNotEmpty) ? commonData['nombre_pagador'] : 'Comercio Activopay',
+        'numero_cuenta_beneficiario': commonData['numero_cuenta_pagador'],
+        'cod_banco_beneficiario': commonData['cod_banco_pagador'],
         'telefono_pago': _formatPhone(telefonoPago),
         'infoComercio': commonData,
       };
@@ -404,9 +427,21 @@ class OperationService {
   /// Procesa el pago de Cobro C2P (Operación 2)
   static Future<OperationResult> processC2p(Map<String, dynamic> formData, double amount) async {
     try {
+      final limiteC2PStr = await SecureStorageService.getLimiteC2P();
+      if (limiteC2PStr != null && limiteC2PStr.isNotEmpty) {
+        final limite = double.tryParse(limiteC2PStr) ?? 0.0;
+        if (limite > 0.0 && amount > limite) {
+          return OperationResult(
+            success: false,
+            errorMessage: 'El monto excede el límite permitido para C2P: $limiteC2PStr',
+          );
+        }
+      }
+
       final commonData = await _getCommonData();
       final data = {
         ...formData,
+        // 'motivo': formData['motivo'] ?? 'Cobro C2P Activopay',
         'monto': amount.toString(),
         'usuario': commonData['usuario'],
         'rif_comercio': commonData['cedula_pagador'],
@@ -438,10 +473,11 @@ class OperationService {
       final commonData = await _getCommonData();
       final data = {
         ...formData,
+        // 'descripcion': formData['descripcion'] ?? 'Débito Inmediato Activopay',
         'monto': amount.toString(),
         'usuario': commonData['usuario'],
         'cedula_beneficiario': commonData['cedula_pagador'],
-        'nombre_beneficiario': commonData['nombre_pagador'],
+        'nombre_beneficiario': (commonData['nombre_pagador'] != null && commonData['nombre_pagador'].toString().trim().isNotEmpty) ? commonData['nombre_pagador'] : 'Comercio Activopay',
         'numero_cuenta_beneficiario': commonData['numero_cuenta_pagador'],
         'cod_banco_beneficiario': commonData['cod_banco_pagador'],
       };

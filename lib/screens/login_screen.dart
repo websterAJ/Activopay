@@ -89,10 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
         await SecureStorageService.saveTempEmail(result.email!);
         await SecureStorageService.saveTempPassword(result.password!);
       }
-      await AuthService.requestDeviceValidationCode(
-        email: result.email,
-        password: result.password,
-      );
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/device-validation');
       }
@@ -158,10 +154,6 @@ class _LoginScreenState extends State<LoginScreen> {
         await SecureStorageService.saveTempEmail(result.email!);
         await SecureStorageService.saveTempPassword(result.password!);
       }
-      await AuthService.requestDeviceValidationCode(
-        email: result.email,
-        password: result.password,
-      );
       if (mounted) Navigator.pushReplacementNamed(context, '/device-validation');
       return;
     }

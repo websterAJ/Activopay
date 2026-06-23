@@ -63,13 +63,13 @@ class AuthService {
         );
       }
       if (response.rifAliado != null) {
-        await SecureStorageService.saveUserRif(response.rifAliado!);
+        final upperRif = response.rifAliado!.toUpperCase();
+        await SecureStorageService.saveUserRif(upperRif);
+        await SecureStorageService.saveCedulaPagador(upperRif);
       }
       if (response.telAliado != null) {
         await SecureStorageService.saveTelefonoPagador(response.telAliado!);
-      }
-      if (response.rifAliado != null) {
-        await SecureStorageService.saveCedulaPagador(response.rifAliado!);
+        debugPrint('GUARDADO EN STORAGE -> telefono_pagador: ${response.telAliado}');
       }
       if (response.nobUsuario != null || response.apeUsuario != null) {
         final fullName =
@@ -181,19 +181,23 @@ class AuthService {
       final deviceFingerprint =
           await SecureStorageService.getDeviceFingerprint() ?? '';
       final email = await SecureStorageService.getTempEmail();
-      final password = await SecureStorageService.getTempPassword();
+      final idComercio = await SecureStorageService.getIdComercio() ?? '001';
       final response = await ApiService.post(
         '/auth/verify-and-register-device',
         data: {
-          'code': code,
-          'device': deviceFingerprint,
           'email': email,
-          'password': password,
+          'codigo': code,
+          'device': deviceFingerprint,
+          'idComercio': idComercio,
+          'tipo_dispositivo': 1,
         },
       );
-      if (response.statusCode == 200) {
-        await SecureStorageService.setDeviceAuthorized(true);
-        return true;
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if ((data['error'] == '0000' || data['error'] == 0) && data['dispositivo_registrado'] == true) {
+          await SecureStorageService.setDeviceAuthorized(true);
+          return true;
+        }
       }
       return false;
     } catch (e) {

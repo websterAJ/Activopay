@@ -7,6 +7,7 @@ import 'secure_storage_service.dart';
 /// Configuración centralizada de red para la aplicación.
 class ApiService {
   static const String _baseUrl = 'http://10.3.0.188:3000/api/';
+  // static const String _baseUrl = 'https://activopay.bancoactivo.com/api/';
 
   static late final Dio _dio;
 
@@ -165,7 +166,7 @@ class ApiService {
         'user': user,
         'name': name,
         'bank': bank,
-        'tpdocument': tpdocument,
+        'tpdocument': tpdocument.toUpperCase(),
         'document': document,
         'phone': phone,
         'account': account,
@@ -193,7 +194,7 @@ class ApiService {
         'id': id,
         'name': name,
         'bank': bank,
-        'tpdocument': tpdocument,
+        'tpdocument': tpdocument.toUpperCase(),
         'document': document,
         'phone': phone,
         'account': account,
@@ -333,7 +334,7 @@ class ContactItem {
     return ContactItem(
       id: json['id']?.toString() ?? '',
       name: json['name'] ?? '',
-      tpdocument: json['tpdocument'] ?? '',
+      tpdocument: (json['tpdocument'] ?? '').toString().toUpperCase(),
       document: json['document'] ?? '',
       phone: json['phone'] ?? '',
       account: json['account'] ?? '',

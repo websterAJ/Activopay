@@ -101,8 +101,8 @@ class _ReceivePaymentQrScreenState extends State<ReceivePaymentQrScreen> {
                 children: [
                   // Scanner frame brackets
                   SizedBox(
-                    width: 280,
-                    height: 280,
+                    width: 340,
+                    height: 340,
                     child: Stack(
                       children: [
                         Positioned(
@@ -127,13 +127,13 @@ class _ReceivePaymentQrScreenState extends State<ReceivePaymentQrScreen> {
                   
                   // QR Code background
                   Container(
-                    width: 240,
-                    height: 240,
+                    width: 300,
+                    height: 300,
                     decoration: BoxDecoration(
                       color: isDark ? AppColors.slate800 : Colors.grey[100],
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    padding: const EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(20),
                     child: Center(
                       child: _isLoading
                           ? const CircularProgressIndicator(color: AppColors.purpleBlue)
@@ -160,8 +160,13 @@ class _ReceivePaymentQrScreenState extends State<ReceivePaymentQrScreen> {
                               : QrImageView(
                                   data: _qrData ?? '',
                                   version: QrVersions.auto,
-                                  size: 200.0,
+                                  size: 260.0,
                                   backgroundColor: Colors.transparent,
+                                  errorCorrectionLevel: QrErrorCorrectLevel.H,
+                                  embeddedImage: const AssetImage('lib/assets/suiche7b.png'),
+                                  embeddedImageStyle: const QrEmbeddedImageStyle(
+                                    size: Size(45, 45),
+                                  ),
                                   eyeStyle: QrEyeStyle(
                                     eyeShape: QrEyeShape.square,
                                     color: isDark ? Colors.white : Colors.black87,

@@ -226,7 +226,8 @@ class _PaymentDirectoryScreenState extends State<PaymentDirectoryScreen> {
 
   void _openEditModal(ContactItem contact) {
     _formNameController.text = contact.name;
-    _formDocPrefix = contact.tpdocument.isNotEmpty ? contact.tpdocument : 'V';
+    final tp = contact.tpdocument.isNotEmpty ? contact.tpdocument.toUpperCase() : 'V';
+    _formDocPrefix = idDocumentPrefixes.contains(tp) ? tp : 'V';
     _formDocNumberController.text = contact.document;
     _formBank = contact.bank.isNotEmpty ? contact.bank : '0000';
     _formPhonePrefix = contact.phone.length >= 4

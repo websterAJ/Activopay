@@ -191,7 +191,8 @@ class _OperationFormScreenState extends State<OperationFormScreen> {
   void initState() {
     super.initState();
     if (widget.params != null && widget.params!['tpdocument'] != null) {
-      _cedulaPrefix = widget.params!['tpdocument'] ?? 'V';
+      final tp = widget.params!['tpdocument']?.toString().toUpperCase() ?? 'V';
+      _cedulaPrefix = ['V', 'E', 'P', 'J', 'G', 'C'].contains(tp) ? tp : 'V';
     }
     _initControllers();
   }
@@ -201,13 +202,20 @@ class _OperationFormScreenState extends State<OperationFormScreen> {
     for (final field in _getFields()) {
       String initialValue = '';
       if (params != null) {
-        if (field.name == 'nombre_beneficiario' || field.name == 'titular' || field.name == 'nombre_pagador') {
+        if (field.name == 'nombre_beneficiario' ||
+            field.name == 'providerName' ||
+            field.name == 'nombre_pagador') {
           initialValue = params['name'] ?? '';
-        } else if (field.name == 'cedula_beneficiario' || field.name == 'cedula_titular' || field.name == 'cedula_pagador') {
+        } else if (field.name == 'cedula_beneficiario' ||
+            field.name == 'cedula_pagador') {
           initialValue = params['document'] ?? '';
-        } else if (field.name == 'numero_cuenta') {
-          initialValue = params['account'] ?? '';
-        } else if (field.name == 'cod_banco' || field.name == 'banco_destino' || field.name == 'banco_pagador') {
+        } else if (field.name == 'accountNumber' ||
+            field.name == 'numero_cuenta_pagador' ||
+            field.name == 'numero_cuenta') {
+          initialValue = params['account'] ?? params['phone'] ?? '';
+        } else if (field.name == 'cod_banco' ||
+            field.name == 'bank' ||
+            field.name == 'cod_banco_pagador') {
           initialValue = params['bank'] ?? '';
         } else if (field.name == 'telefono') {
           initialValue = params['phone'] ?? '';
@@ -256,6 +264,23 @@ class _OperationFormScreenState extends State<OperationFormScreen> {
   }
 
   Future<void> _requestOtp() async {
+    if (widget.operationId == '6') {
+      final nombre = _controllers['nombre_pagador']?.text.trim() ?? '';
+      final cedula = _controllers['cedula_pagador']?.text.trim() ?? '';
+      final cuenta = _controllers['numero_cuenta_pagador']?.text.trim() ?? '';
+      final descripcion = _controllers['descripcion']?.text.trim() ?? '';
+      
+      if (nombre.isEmpty || cedula.isEmpty || cuenta.isEmpty || descripcion.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor completa todos los campos (Nombre, Cédula, Cuenta y Descripción) antes de solicitar el OTP.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     
     final data = <String, dynamic>{};
@@ -273,8 +298,8 @@ class _OperationFormScreenState extends State<OperationFormScreen> {
       final telefonoPago = data['telefono_pago'] ?? '';
       result = await OperationService.requestC2pOtp(cedulaPago, telefonoPago);
     } else if (widget.operationId == '6') {
-      final telefonoPago = data['telefono_pago'] ?? '';
-      result = await OperationService.requestDinmediatoOtp(data, telefonoPago);
+      final telefonoPago = data['numero_cuenta_pagador'] ?? '';
+      result = await OperationService.requestDinmediatoOtp(data, telefonoPago, widget.amount);
     }
 
     if (!mounted) return;
@@ -337,9 +362,15 @@ class _OperationFormScreenState extends State<OperationFormScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => OperationSuccessScreen(
-            operationName: widget.operationName,
+            type: SuccessScreenType.payment,
+            title: 'Pago Exitoso',
+            subtitle: 'Tu transferencia ha sido procesada',
             amount: widget.amount,
-            referenceNumber: result!.referenceNumber,
+            reference: result!.referenceNumber,
+            date: result.date ?? DateTime.now(),
+            recipientName: result.recipientName ?? data['nombre_beneficiario'] ?? 'Destinatario',
+            bankName: result.bank ?? data['bank'] ?? data['banco_destino'],
+            concept: result.concept ?? 'Pago de servicios',
           ),
         ),
       );
@@ -595,18 +626,17 @@ const _fieldDefinitions = <String, List<_FormFieldDef>>{
     _FormFieldDef(name: 'otp', label: 'Código OTP', type: _FieldType.otp),
   ],
   '3': [
-    _FormFieldDef(name: 'banco_destino', label: 'Banco de Destino', type: _FieldType.bank),
-    _FormFieldDef(name: 'numero_cuenta', label: 'Número de Cuenta', type: _FieldType.number),
-    _FormFieldDef(name: 'titular', label: 'Titular de la Cuenta'),
-    _FormFieldDef(name: 'cedula_titular', label: 'Cédula del Titular', type: _FieldType.cedula),
+    _FormFieldDef(name: 'bank', label: 'Banco de Destino', type: _FieldType.bank),
+    _FormFieldDef(name: 'accountNumber', label: 'Número de Cuenta', type: _FieldType.number),
+    _FormFieldDef(name: 'providerName', label: 'Titular de la Cuenta'),
+    _FormFieldDef(name: 'cedula_beneficiario', label: 'Cédula del Titular', type: _FieldType.cedula),
     _FormFieldDef(name: 'descripcion', label: 'Descripción'),
   ],
   '6': [
     _FormFieldDef(name: 'nombre_pagador', label: 'Nombre del Pagador'),
     _FormFieldDef(name: 'cedula_pagador', label: 'Cédula del Pagador', type: _FieldType.cedula),
-    _FormFieldDef(name: 'telefono_pago', label: 'Teléfono del Pagador', type: _FieldType.phone),
-    _FormFieldDef(name: 'banco_pagador', label: 'Banco del Pagador', type: _FieldType.bank),
-    _FormFieldDef(name: 'numero_cuenta', label: 'Número de Cuenta', type: _FieldType.number),
+    _FormFieldDef(name: 'cod_banco_pagador', label: 'Banco del Pagador', type: _FieldType.bank),
+    _FormFieldDef(name: 'numero_cuenta_pagador', label: 'Número de Cuenta / Teléfono del Pagador', type: _FieldType.number),
     _FormFieldDef(name: 'descripcion', label: 'Descripción'),
     _FormFieldDef(name: 'otp', label: 'Código OTP', type: _FieldType.otp),
   ],

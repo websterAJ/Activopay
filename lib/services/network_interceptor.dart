@@ -91,6 +91,9 @@ class NetworkInterceptor extends Interceptor {
       'ERROR[${err.response?.statusCode}] => PATH: ${err.requestOptions.path}',
     );
     debugPrint('  Message: ${err.message}');
+    debugPrint('  URI: ${err.requestOptions.uri}');
+    debugPrint('  Error Detail: ${err.error}');
+    debugPrint('  Type: ${err.type}');
 
     final statusCode = err.response?.statusCode;
 
